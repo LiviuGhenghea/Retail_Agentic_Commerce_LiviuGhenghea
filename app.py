@@ -295,7 +295,7 @@ if user_input:
             agent_msg(
                 f"✅ Address saved: **{parts[0]} {parts[1]}, {parts[2]} {parts[3]}**\n\n"
                 "Now for payment. Please enter your **German IBAN**:\n\n"
-                "Format: **DE** followed by 20 digits (e.g. DE12300400244000011400)"
+                "Format: **DE** followed by 20 digits (e.g. DE89370400440532013000)"
             )
             st.session_state.step = "payment"
         else:
@@ -330,7 +330,7 @@ if user_input:
                     start_date = st.session_state.selected_start_date or st.session_state.start_dates[0]
                     now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+01:00")
 
-                    # Step 1: create lead without bank account (avoids 500 on some IBANs)
+                    # Step 1: create lead (documents_accepted_at must NOT be in create call)
                     lead = api.create_lead({
                         "customer": {
                             **st.session_state.owner,
@@ -342,7 +342,6 @@ if user_input:
                             "starting_at": start_date,
                             "billing_day": "1",
                             "insurance_for": "me",
-                            "documents_accepted_at": now_str,
                             "insured_pet": {
                                 "breed_id":      st.session_state.breed_id,
                                 "name":          st.session_state.dog.get("name"),
@@ -354,11 +353,14 @@ if user_input:
                     })
                     st.session_state.lead_uuid = lead["uuid"]
 
-                    # Step 2: update with bank account separately
+                    # Step 2: update with documents_accepted_at and bank account
                     try:
-                        api.update_lead(lead["uuid"], {"bank_account": st.session_state.bank})
+                        api.update_lead(lead["uuid"], {
+                            "contract": {"documents_accepted_at": now_str},
+                            "bank_account": st.session_state.bank,
+                        })
                     except Exception:
-                        pass  # lead is created; bank can be added later
+                        pass  # lead exists; these can be added via portal
 
                     plan_name = meta["name"]
                     price = st.session_state.prices[st.session_state.selected_category]
