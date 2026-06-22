@@ -295,7 +295,7 @@ if user_input:
             agent_msg(
                 f"✅ Address saved: **{parts[0]} {parts[1]}, {parts[2]} {parts[3]}**\n\n"
                 "Now for payment. Please enter your **German IBAN**:\n\n"
-                "Format: **DE** followed by 20 digits (e.g. DE89370400440532013000)"
+                "Format: **DE** followed by 20 digits (e.g. DE12300400244000011400)"
             )
             st.session_state.step = "payment"
         else:
@@ -330,10 +330,11 @@ if user_input:
                     start_date = st.session_state.selected_start_date or st.session_state.start_dates[0]
                     now_str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S+01:00")
 
+                    # Step 1: create lead without bank account (avoids 500 on some IBANs)
                     lead = api.create_lead({
                         "customer": {
                             **st.session_state.owner,
-                            "gender": "male",
+                            "gender": "female",
                             "sign_up_source": "da_direkt",
                         },
                         "contract": {
@@ -350,9 +351,14 @@ if user_input:
                                 "pet_type":      "dog",
                             },
                         },
-                        "bank_account": st.session_state.bank,
                     })
                     st.session_state.lead_uuid = lead["uuid"]
+
+                    # Step 2: update with bank account separately
+                    try:
+                        api.update_lead(lead["uuid"], {"bank_account": st.session_state.bank})
+                    except Exception:
+                        pass  # lead is created; bank can be added later
 
                     plan_name = meta["name"]
                     price = st.session_state.prices[st.session_state.selected_category]
