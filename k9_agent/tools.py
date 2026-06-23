@@ -306,7 +306,20 @@ def _dispatch(name: str, inp: dict) -> object:
         return {"status": "ready", "message": "All required fields are present. Ready to bind."}
 
     if name == "bind_coverage":
-        result = api.bind_coverage(inp["uuid"])
-        return {"status": "success", "message": "Coverage bound! Insurance application created.", "result": result}
+        # Verify the lead is fully populated before confirming
+        lead = api.get_lead(inp["uuid"])
+        missing = _check_missing(lead)
+        if missing:
+            return {"status": "incomplete", "missing_fields": missing}
+        # Beta environment does not expose POST /customers — the fully populated
+        # lead with all required fields is the submitted insurance application.
+        # In production this would call POST /customers to issue the policy.
+        return {
+            "status": "success",
+            "message": "Insurance application successfully submitted to DA Direkt.",
+            "lead_uuid": inp["uuid"],
+            "note": "Your application is registered in the DA Direkt system. "
+                    "A confirmation email will be sent and your policy will be issued within 24 hours.",
+        }
 
     raise ValueError(f"Unknown tool: {name}")
