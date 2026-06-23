@@ -17,7 +17,8 @@
 | Artifact | Filename or URL |
 |---|---|
 | GitHub repo | https://github.com/LiviuGhenghea/Retail_Agentic_Commerce_LiviuGhenghea |
-| Exported workflow / solution | `k9-agent/` (Python project — see repo) |
+| Live demo | https://k9agent.streamlit.app |
+| Exported workflow / solution | https://k9agent.streamlit.app |
 | Copilot Studio agent name | N/A |
 | Demo video | `LiviuGhenghea_Retail_Agentic_Commerce.mp4` |
 | Video transcript | `LiviuGhenghea_Retail_Agentic_Commerce_transcript.md` |
