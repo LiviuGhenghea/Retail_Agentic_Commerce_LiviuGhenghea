@@ -6,10 +6,12 @@ calls tools against the Petolo APIs, and returns structured responses.
 from __future__ import annotations
 import os
 import json
-import anthropic
+import httpx
 from k9_agent.tools import TOOL_SCHEMAS, run_tool
 
 MODEL = "claude-sonnet-4-6"
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_VERSION = "2023-06-01"
 
 SYSTEM_PROMPT = """\
 You are the K9 Agent — DA Direkt's AI insurance specialist for dog health insurance.
@@ -70,15 +72,31 @@ class ZurichAgent:
     """
 
     def __init__(self):
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
+        self.api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not self.api_key:
             raise EnvironmentError(
                 "ANTHROPIC_API_KEY environment variable is not set. "
                 "Export it before running: export ANTHROPIC_API_KEY=your_key"
             )
-        self.client = anthropic.Anthropic(api_key=api_key)
         self.history = []
         self.lead_uuid = None
+
+    def _call_api(self, messages: list) -> dict:
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        }
+        body = {
+            "model": MODEL,
+            "max_tokens": 4096,
+            "system": SYSTEM_PROMPT,
+            "tools": TOOL_SCHEMAS,
+            "messages": messages,
+        }
+        r = httpx.post(ANTHROPIC_API_URL, headers=headers, json=body, timeout=60.0)
+        r.raise_for_status()
+        return r.json()
 
     def chat(self, user_message: str) -> str:
         """Send a message and return the agent's text response."""
@@ -87,31 +105,26 @@ class ZurichAgent:
         return response_text
 
     def _run_loop(self) -> str:
-        """Agentic loop: call Claude, handle tool use, repeat until text response."""
+        """Agentic loop: call Claude via HTTP, handle tool use, repeat until text response."""
         while True:
-            response = self.client.messages.create(
-                model=MODEL,
-                max_tokens=4096,
-                system=SYSTEM_PROMPT,
-                tools=TOOL_SCHEMAS,
-                messages=self.history,
-            )
+            response = self._call_api(self.history)
 
-            # Collect all tool use blocks and text blocks
-            tool_uses = [b for b in response.content if b.type == "tool_use"]
-            text_blocks = [b for b in response.content if b.type == "text"]
+            content = response.get("content", [])
+            stop_reason = response.get("stop_reason", "end_turn")
 
-            # Always append the assistant message (may contain tool_use + text blocks)
-            self.history.append({"role": "assistant", "content": response.content})
+            tool_uses = [b for b in content if b.get("type") == "tool_use"]
+            text_blocks = [b for b in content if b.get("type") == "text"]
 
-            if response.stop_reason == "end_turn" or not tool_uses:
-                # Final text response
-                return "\n".join(b.text for b in text_blocks if b.text)
+            # Append assistant message to history
+            self.history.append({"role": "assistant", "content": content})
+
+            if stop_reason == "end_turn" or not tool_uses:
+                return "\n".join(b.get("text", "") for b in text_blocks if b.get("text"))
 
             # Execute all tool calls and feed results back
             tool_results = []
             for tu in tool_uses:
-                result_text = run_tool(tu.name, dict(tu.input))
+                result_text = run_tool(tu["name"], dict(tu.get("input", {})))
 
                 # Track lead UUID for convenience
                 try:
@@ -123,7 +136,7 @@ class ZurichAgent:
 
                 tool_results.append({
                     "type": "tool_result",
-                    "tool_use_id": tu.id,
+                    "tool_use_id": tu["id"],
                     "content": result_text,
                 })
 

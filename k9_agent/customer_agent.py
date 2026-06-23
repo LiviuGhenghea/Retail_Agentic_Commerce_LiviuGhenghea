@@ -5,9 +5,12 @@ Used for hackathon demos, automated testing, and agent-to-agent simulation.
 """
 from __future__ import annotations
 import os
-import anthropic
+import httpx
+import json as _json
 
-MODEL = "claude-haiku-4-5-20251001"  # fast, cheap for the customer-side driver
+MODEL = "claude-haiku-4-5-20251001"
+ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+ANTHROPIC_VERSION = "2023-06-01"
 
 SYSTEM_PROMPT = """\
 You are a personal AI agent acting on behalf of a dog owner who wants to get pet insurance.
@@ -47,32 +50,36 @@ class CustomerAgent:
     """
 
     def __init__(self, owner_profile: dict):
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
+        self.api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not self.api_key:
             raise EnvironmentError("ANTHROPIC_API_KEY environment variable is not set.")
-        self.client = anthropic.Anthropic(api_key=api_key)
         self.owner_profile = owner_profile
-        self.history: list[dict] = []
+        self.history = []
 
     def _system(self) -> str:
-        import json
-        profile_str = json.dumps(self.owner_profile, indent=2, ensure_ascii=False)
+        profile_str = _json.dumps(self.owner_profile, indent=2, ensure_ascii=False)
         return SYSTEM_PROMPT.format(owner_profile=profile_str)
 
-    def decide_next_message(self, zurich_response: str) -> str:
-        """
-        Given the latest response from the Zurich Agent, decide what to say next.
-        Returns the customer agent's next message.
-        """
-        self.history.append({"role": "user", "content": f"[Zurich K9 Agent]: {zurich_response}"})
+    def _call_api(self, messages: list) -> str:
+        headers = {
+            "x-api-key": self.api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        }
+        body = {
+            "model": MODEL,
+            "max_tokens": 1024,
+            "system": self._system(),
+            "messages": messages,
+        }
+        r = httpx.post(ANTHROPIC_API_URL, headers=headers, json=body, timeout=60.0)
+        r.raise_for_status()
+        content = r.json().get("content", [])
+        return next((b["text"] for b in content if b.get("type") == "text"), "")
 
-        response = self.client.messages.create(
-            model=MODEL,
-            max_tokens=1024,
-            system=self._system(),
-            messages=self.history,
-        )
-        reply = response.content[0].text
+    def decide_next_message(self, zurich_response: str) -> str:
+        self.history.append({"role": "user", "content": f"[Zurich K9 Agent]: {zurich_response}"})
+        reply = self._call_api(self.history)
         self.history.append({"role": "assistant", "content": reply})
         return reply
 
