@@ -25,6 +25,7 @@
 | Pitch deck | `LiviuGhenghea_Retail_Agentic_Commerce.pdf` |
 | Technical summary | `Retail_Agentic_Commerce_LiviuGhenghea.md` |
 | Process design map | `LiviuGhenghea_Retail_Agentic_Commerce_processmap.png` |
+| URL to prototype | https://k9agent.streamlit.app |
 
 ---
 
