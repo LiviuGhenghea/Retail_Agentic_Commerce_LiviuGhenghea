@@ -58,13 +58,17 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar="🐾" if msg["role"] == "assistant" else "👤"):
         st.markdown(msg["content"])
 
-# ── Opening greeting ──────────────────────────────────────────────────────────
+# ── Opening greeting (static — no API call on startup) ────────────────────────
 if not st.session_state.started:
-    with st.spinner("K9 Agent is starting..."):
-        reply = st.session_state.agent.chat(
-            "Hello! Greet the customer warmly and ask for their dog's details to get started."
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": (
+            "👋 **Hello! I'm the K9 Agent**, DA Direkt's AI insurance specialist.\n\n"
+            "I'll help you find the best dog health insurance with live prices, clear explanations, "
+            "and no hidden surprises.\n\n"
+            "**Tell me about your dog to get started** — their name, breed, and date of birth."
         )
-    st.session_state.messages.append({"role": "assistant", "content": reply})
+    })
     st.session_state.started = True
     st.rerun()
 
