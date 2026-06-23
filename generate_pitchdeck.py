@@ -5,7 +5,8 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from reportlab.platypus.flowables import HRFlowable
+from reportlab.platypus.flowables import HRFlowable, Flowable
+from reportlab.pdfgen import canvas as pdfcanvas
 
 ZURICH_BLUE  = colors.HexColor("#003882")
 MID_BLUE     = colors.HexColor("#0057b8")
@@ -21,6 +22,38 @@ ORANGE       = colors.HexColor("#e07b00")
 LIGHT_ORANGE = colors.HexColor("#fff4e0")
 
 OUTPUT = "/Users/LIVIU.GHENGHEA/k9-agent/LiviuGhenghea_Retail_Agentic_Commerce.pdf"
+
+# ── Zurich logo flowable (drawn programmatically) ─────────────────────────────
+class ZurichLogo(Flowable):
+    """Draws the Zurich 'Z' shield logo: blue rounded rect + white Z."""
+    def __init__(self, size=28):
+        super().__init__()
+        self.size = size
+        self.width = size * 2.2
+        self.height = size
+
+    def draw(self):
+        c = self.canv
+        s = self.size
+        w = self.width
+        # Blue rounded rectangle background
+        c.setFillColor(colors.HexColor("#003882"))
+        c.roundRect(0, 0, w, s, radius=s*0.12, fill=1, stroke=0)
+        # White "ZURICH" text
+        c.setFillColor(colors.white)
+        c.setFont("Helvetica-Bold", s * 0.38)
+        c.drawCentredString(w / 2, s * 0.31, "ZURICH")
+        # White Z-shield top line
+        c.setStrokeColor(colors.white)
+        c.setLineWidth(s * 0.08)
+        lm = w * 0.12
+        rm = w * 0.88
+        top = s * 0.82
+        mid = s * 0.65
+        bot = s * 0.52
+        c.line(lm, top, rm, top)
+        c.line(rm, top, lm, bot)
+        c.line(lm, bot, rm, bot)
 
 doc = SimpleDocTemplate(
     OUTPUT,
@@ -81,17 +114,20 @@ def info_card(label, content, bg=LIGHT_BLUE, label_color=ZURICH_BLUE, w=None):
 # Outer wrapper — 1cm margin all around
 inner_w = W - 2*cm
 
-# Title
+# Title — Page 1
 p1_title = Table(
-    [[Paragraph("<b>K9 Agent</b>", S("P1T", fontSize=26, textColor=WHITE, fontName="Helvetica-Bold")),
-      Paragraph("Hyper<b>challenge</b> 2026", S("P1S", fontSize=12, textColor=LIGHT_BLUE, alignment=TA_RIGHT))]],
-    colWidths=[inner_w * 0.7, inner_w * 0.3]
+    [[Paragraph("<b>K9 Agent — DA Direkt Dog Insurance</b>",
+                S("P1T", fontSize=20, textColor=WHITE, fontName="Helvetica-Bold")),
+      Paragraph("AI-native Research, Quote &amp; Bind",
+                S("P1S2", fontSize=10, textColor=LIGHT_BLUE, alignment=TA_CENTER)),
+      ZurichLogo(size=32)]],
+    colWidths=[inner_w * 0.52, inner_w * 0.28, inner_w * 0.2]
 )
 p1_title.setStyle(TableStyle([
     ("BACKGROUND",  (0,0), (-1,-1), ZURICH_BLUE),
     ("ROWPADDING",  (0,0), (-1,-1), 14),
     ("LEFTPADDING", (0,0), (0,-1), 20),
-    ("RIGHTPADDING",(1,0), (1,-1), 20),
+    ("RIGHTPADDING",(2,0), (2,-1), 20),
     ("VALIGN",      (0,0), (-1,-1), "MIDDLE"),
 ]))
 
@@ -198,13 +234,15 @@ def slide_header(num, title, subtitle=""):
         Table([
             [Paragraph(f"<b>{title}</b>", S("SHT", fontSize=16, textColor=WHITE, fontName="Helvetica-Bold"))],
             [Paragraph(subtitle, S("SHS", fontSize=9, textColor=LIGHT_BLUE))],
-        ], colWidths=[inner_w * 0.88]),
+        ], colWidths=[inner_w * 0.75]),
+        ZurichLogo(size=30),
     ]]
-    t = Table(row, colWidths=[inner_w * 0.08, inner_w * 0.92])
+    t = Table(row, colWidths=[inner_w * 0.08, inner_w * 0.77, inner_w * 0.15])
     t.setStyle(TableStyle([
         ("BACKGROUND",  (0,0), (-1,-1), ZURICH_BLUE),
         ("VALIGN",      (0,0), (-1,-1), "MIDDLE"),
         ("ROWPADDING",  (0,0), (-1,-1), 12),
+        ("RIGHTPADDING",(2,0), (2,-1), 16),
     ]))
     return t
 
