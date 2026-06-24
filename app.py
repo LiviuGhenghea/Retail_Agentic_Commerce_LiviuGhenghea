@@ -12,6 +12,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 import streamlit as st
 from k9_agent.zurich_agent import ZurichAgent
 
+# Inject Streamlit secret into env if running on Streamlit Cloud
+if "ANTHROPIC_API_KEY" in st.secrets:
+    os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="K9 Agent — DA Direkt",
